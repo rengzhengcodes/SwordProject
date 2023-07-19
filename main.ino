@@ -1,4 +1,7 @@
+// Includes C++ Standard Library RNG for random delay times for sword pairing.
 #include <random>
+
+// Imports the ESP32 BLE Library, ESP32 WiFi Library, and ESP32 ESP-Now Library
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEServer.h>
@@ -19,20 +22,38 @@ BLEService *bleService;
 BLECharacteristic *bleCharacteristic;
 BLEAdvertising *bleAdvertising;
 
-// State
-bool is_server = true;
-bool is_bt_connected = false;
-bool is_en_connected = false; // Is ESP-Now Connected
-bool is_error = false;
-int32_t delay_length;
-uint8_t mac_address[6];
-char server_mac_address[18]; // Only used if this device becomes client
+// Tracks the bluetooth state
+struct BTState {
+  bool is_server;             // If the current BT device is a server.
+  bool is_bt_connected;       // If a BT device was connected
+  bool is_en_connected;       // Is ESP-Now Connected
+  bool is_error;              // If a BTError occurred
+  int32_t delay_length;       // Delay length for next discovery phase shift
+  uint8_t mac_address[6];     // MAC Address of this device
+  char server_mac_address[18];// Only used if this device becomes client
+}
 
 // Bluetooth Connection Constants
-const char* uuid_service = "734c019d-0055-4922-a5e1-943d57c8281a";
-const char* uuid_characteristic = "671acaa6-7c79-4722-9ad0-4bdf3118695a";
+#define UUID_SERVICE "734c019d-0055-4922-a5e1-943d57c8281a"
+#define UUID_CHARACTERISTIC "671acaa6-7c79-4722-9ad0-4bdf3118695a"
 
-// Flip `is_server` and set `delay` to a random milisecond value
+// Creates a global BTState inherent to this sword
+BTState state = {
+  .is_server = false,
+  .is_bt_connected = false,
+  .is_en_connected = false,
+  .is_error = false,
+  .delay_length = 0,
+  .mac_address = { 0 },
+  .server_mac_address = { 0 }
+}
+
+/**
+ * Flips the discovery mode and sets a random time for the discovery to occur in,
+ * between 1 and 5 seconds.
+ * 
+ * @post  The discovery mode is flipped and a new random delay is set for discovery.
+ */
 void next_discovery() {
   is_server = !is_server;
   auto gen = std::bind(std::uniform_int_distribution<int32_t>(1000,5000),std::default_random_engine());
