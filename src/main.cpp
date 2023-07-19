@@ -12,18 +12,37 @@
 // Imports the Arduino Standard Library
 #include <Arduino.h>
 
-// Bluetooth Client Vars
-BLEScan* pBLEScan;
-BLEClient* pBLEClient;
-BLERemoteService* pRemoteService;
-BLERemoteCharacteristic* pRemoteCharacteristic;
-BLEAdvertisedDevice _advertisedDevice;
+// Bluetooth Client vars storage.
+struct BTClient {
+  BLEScan* pBLEScan;
+  BLEClient* pBLEClient;
+  BLERemoteService* pRemoteService;
+  BLERemoteCharacteristic* pRemoteCharacteristic;
+  BLEAdvertisedDevice advertisedDevice;
+};
+
+BTClient btClient = {
+  .pBLEScan = BLEDevice::getScan(),
+  .pBLEClient = BLEDevice::createClient(),
+  .pRemoteService = nullptr,
+  .pRemoteCharacteristic = nullptr,
+  .advertisedDevice = BLEAdvertisedDevice()
+};
 
 // Bluetooth Server Vars
-BLEServer *bleServer;
-BLEService *bleService;
-BLECharacteristic *bleCharacteristic;
-BLEAdvertising *bleAdvertising;
+struct BTServer {
+  BLEServer *bleServer;
+  BLEService *bleService;
+  BLECharacteristic *bleCharacteristic;
+  BLEAdvertising *bleAdvertising;
+};
+
+BTServer btServer = {
+  .bleServer = BLEDevice::createServer(),
+  .bleService = nullptr,
+  .bleCharacteristic = nullptr,
+  .bleAdvertising = nullptr
+};
 
 // Tracks the bluetooth state
 struct BTState {
@@ -86,7 +105,7 @@ class BluetoothClientCallbacks : public BLEAdvertisedDeviceCallbacks {
     if (advertisedDevice.haveServiceUUID() && 
         advertisedDevice.getServiceUUID().toString() == UUID_SERVICE) {
       Serial.printf("Advertised Device: %s \n", advertisedDevice.toString().c_str());
-      _advertisedDevice = advertisedDevice;
+      btClient.advertisedDevice = advertisedDevice;
       bt.is_bt_connected = true;
       return;
     }
@@ -96,47 +115,43 @@ class BluetoothClientCallbacks : public BLEAdvertisedDeviceCallbacks {
 void setup() {
   BLEDevice::init("GameSword");
   Serial.begin(115200);
-  // Grab MAC Address
-  WiFi.mode(WIFI_MODE_STA);
-  esp_wifi_get_mac(WIFI_IF_STA, bt.mac_address);
-
-  // Initialize Bluetooth Server
-  bleServer = BLEDevice::createServer();
-  bleServer->setCallbacks(new BluetoothServerCallbacks());
-  bleService = bleServer->createService(UUID_SERVICE);
-  bleCharacteristic = bleService->createCharacteristic(UUID_CHARACTERISTIC, BLECharacteristic::PROPERTY_READ);
 
   // Initialize Bluetooth Client
-  pBLEScan = BLEDevice::getScan();
-  pBLEScan->setAdvertisedDeviceCallbacks(new BluetoothClientCallbacks());
-  pBLEScan->setActiveScan(true);
-  pBLEScan->setInterval(100);
-  pBLEScan->setWindow(99);
+  btClient.pBLEScan->setAdvertisedDeviceCallbacks(new BluetoothClientCallbacks());
+  btClient.pBLEScan->setActiveScan(true);
+  btClient.pBLEScan->setInterval(100);
+  btClient.pBLEScan->setWindow(99);
+
+  // Initialize Bluetooth Server
+  btServer.bleServer = BLEDevice::createServer();
+  btServer.bleServer->setCallbacks(new BluetoothServerCallbacks());
+  btServer.bleService = btServer.bleServer->createService(UUID_SERVICE);
+  btServer.bleCharacteristic = btServer.bleService->createCharacteristic(UUID_CHARACTERISTIC, BLECharacteristic::PROPERTY_READ);
 
   // Keep looping until a bluetooth connection is formed or an error occurs
   while(!bt.is_bt_connected && !bt.is_error) {
     // Attempt to masquerade as a server
     if(bt.is_server) {
-      bleService->start();
-      bleAdvertising = BLEDevice::getAdvertising();
+      btServer.bleService->start();
+      btServer.bleAdvertising = BLEDevice::getAdvertising();
       BLEDevice::startAdvertising();
       delay(bt.delay);
-      bleService->stop();
+      btServer.bleService->stop();
     } else {
-      bool clientConnected = pBLEClient->connect(&_advertisedDevice);
+      bool clientConnected = btClient.pBLEClient->connect(&btClient.advertisedDevice);
       if (!clientConnected) {
         continue;
       }
-      pRemoteService = pBLEClient->getService(UUID_SERVICE);
-      if (pRemoteService == nullptr) {
+      btClient.pRemoteService = btClient.pBLEClient->getService(UUID_SERVICE);
+      if (btClient.pRemoteService == nullptr) {
         continue;
       }
-      pRemoteCharacteristic = pRemoteService->getCharacteristic(UUID_CHARACTERISTIC);
+      btClient.pRemoteCharacteristic = btClient.pRemoteService->getCharacteristic(UUID_CHARACTERISTIC);
       
-      if (pRemoteCharacteristic == nullptr) {
+      if (btClient.pRemoteCharacteristic == nullptr) {
         continue;
       }
-      const char* rawData = pRemoteCharacteristic->readValue().c_str();
+      const char* rawData = btClient.pRemoteCharacteristic->readValue().c_str();
       sprintf(bt.server_mac_address, "%02X:%02X:%02X:%02X:%02X:%02X", rawData[0], rawData[1], rawData[2], rawData[3], rawData[4], rawData[5]);
       // If we made it this far, I guess we're connected now, yay!
       bt.is_bt_connected = true;
