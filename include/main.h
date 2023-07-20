@@ -53,13 +53,13 @@ BTClient btClient = {
   .advertisedDevice = BLEAdvertisedDevice()
 };
 
-// // Initializes the bluetooth server related variables.
-// BTServer btServer = {
-//   .bleServer = BLEDevice::createServer(),
-//   .bleService = nullptr,
-//   .bleCharacteristic = nullptr,
-//   .bleAdvertising = nullptr
-// };
+// Initializes the bluetooth server related variables.
+BTServer btServer = {
+  .bleServer = nullptr, //BLEDevice::createServer(),
+  .bleService = nullptr,
+  .bleCharacteristic = nullptr,
+  .bleAdvertising = nullptr
+};
 
 // // Creates a global BTState inherent to this sword
 // BTState bt = {
