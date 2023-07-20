@@ -130,12 +130,14 @@ void setup() {
   btServer.bleService->start();
   btServer.bleAdvertising = BLEDevice::getAdvertising();
   BLEDevice::startAdvertising();
+  Serial.println("Advertising...");
 
 
   // Keeps scanning until a bluetooth connection is formed or an error occurs.
   while(!bt.is_bt_connected && !bt.is_error) {
     // Does a 5 second scan for a server.
     btClient.pBLEScan->start(5);
+    Serial.println("Scanning...");
     delay(5000);
     btClient.pBLEScan->stop();
     
@@ -161,7 +163,10 @@ void setup() {
     bt.is_bt_connected = true;
   }
 
-  // 
+  // If we are connected, keep printing so until it's false.
+  while(bt.is_bt_connected) {
+    Serial.println("Connected to Server");
+  }
 }
   // If you made it here, that probably worked
   // Hi Reng, it's 6am, and I need to start moving, so here's the plan
