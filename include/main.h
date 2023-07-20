@@ -44,57 +44,37 @@ struct BTState {
   char server_mac_address[18];// Only used if this device becomes client
 };
 
-// Initializes the bluetooth client related variables.
-BTClient btClient = {
-  .pBLEScan = BLEDevice::getScan(),
-  .pBLEClient = BLEDevice::createClient(),
-  .pRemoteService = nullptr,
-  .pRemoteCharacteristic = nullptr,
-  .advertisedDevice = BLEAdvertisedDevice()
+// Instantiates the bluetooth client related variables.
+BTClient btClient;
+// Instantiates the bluetooth server related variables.
+BTServer btServer;
+// Instantiates a global BTState inherent to this sword
+BTState bt;
+
+class BluetoothServerCallbacks : public BLEServerCallbacks {
+    inline void onConnect(BLEServer* pServer) 
+    { bt.is_bt_connected = true; }
+    inline void onDisconnect(BLEServer* pServer) 
+    { bt.is_bt_connected = false; bt.is_error = true; }
 };
-
-// Initializes the bluetooth server related variables.
-BTServer btServer = {
-  .bleServer = nullptr, //BLEDevice::createServer(),
-  .bleService = nullptr,
-  .bleCharacteristic = nullptr,
-  .bleAdvertising = nullptr
+/// @brief Handles advertisement communications when an ESP32 is scanning.
+class BluetoothClientCallbacks : public BLEAdvertisedDeviceCallbacks {
+  /**
+   * Event-driven instruction for when an advertising device is discovered.
+   * 
+   * @param advertisedDevice The device that was discovered.
+   */
+  inline void onResult(BLEAdvertisedDevice advertisedDevice) {    
+    // If the device has a service UUID, and it matches the UUID we're looking for, then we found the server.  
+    if (advertisedDevice.haveServiceUUID() && 
+        advertisedDevice.getServiceUUID().toString() == UUID_SERVICE) {
+      Serial.printf("Advertised Device: %s \n", advertisedDevice.toString().c_str());
+      btClient.advertisedDevice = advertisedDevice;
+      bt.is_bt_connected = true;
+      return;
+    }
+  }
 };
-
-// // Creates a global BTState inherent to this sword
-// BTState bt = {
-//   .is_bt_connected = false,
-//   .is_en_connected = false,
-//   .is_error = false,
-//   .delay = 0,
-//   .mac_address = { 0 },
-//   .server_mac_address = { 0 }
-// };
-
-// class BluetoothServerCallbacks : public BLEServerCallbacks {
-//     inline void onConnect(BLEServer* pServer) 
-//     { bt.is_bt_connected = true; }
-//     inline void onDisconnect(BLEServer* pServer) 
-//     { bt.is_bt_connected = false; bt.is_error = true; }
-// };
-// /// @brief Handles advertisement communications when an ESP32 is scanning.
-// class BluetoothClientCallbacks : public BLEAdvertisedDeviceCallbacks {
-//   /**
-//    * Event-driven instruction for when an advertising device is discovered.
-//    * 
-//    * @param advertisedDevice The device that was discovered.
-//    */
-//   inline void onResult(BLEAdvertisedDevice advertisedDevice) {    
-//     // If the device has a service UUID, and it matches the UUID we're looking for, then we found the server.  
-//     if (advertisedDevice.haveServiceUUID() && 
-//         advertisedDevice.getServiceUUID().toString() == UUID_SERVICE) {
-//       Serial.printf("Advertised Device: %s \n", advertisedDevice.toString().c_str());
-//       btClient.advertisedDevice = advertisedDevice;
-//       bt.is_bt_connected = true;
-//       return;
-//     }
-//   }
-// };
 
 void setup();
 void loop();
