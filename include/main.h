@@ -44,14 +44,14 @@ struct BTState {
   char server_mac_address[18];// Only used if this device becomes client
 };
 
-// // Initializes the bluetooth client related variables.
-// BTClient btClient = {
-//   .pBLEScan = BLEDevice::getScan(),
-//   .pBLEClient = BLEDevice::createClient(),
-//   .pRemoteService = nullptr,
-//   .pRemoteCharacteristic = nullptr,
-//   .advertisedDevice = BLEAdvertisedDevice()
-// };
+// Initializes the bluetooth client related variables.
+BTClient btClient = {
+  .pBLEScan = BLEDevice::getScan(),
+  .pBLEClient = BLEDevice::createClient(),
+  .pRemoteService = nullptr,
+  .pRemoteCharacteristic = nullptr,
+  .advertisedDevice = BLEAdvertisedDevice()
+};
 
 // // Initializes the bluetooth server related variables.
 // BTServer btServer = {
