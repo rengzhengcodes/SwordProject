@@ -1,5 +1,5 @@
 // Flag to minimize library size.
-#pragma GCC optimize ("Os")
+#pragma GCC optimize ("O3")
 
 // Imports the ESP32 BLE Library, ESP32 WiFi Library, and ESP32 ESP-Now Library
 #include <BLEDevice.h>
@@ -46,7 +46,6 @@ BTServer btServer = {
 
 // Tracks the bluetooth state
 struct BTState {
-  bool is_server;             // If the current BT device is a server.
   bool is_bt_connected;       // If a BT device was connected
   bool is_en_connected;       // Is ESP-Now Connected
   bool is_error;              // If a BTError occurred
@@ -61,7 +60,6 @@ struct BTState {
 
 // Creates a global BTState inherent to this sword
 BTState bt = {
-  .is_server = false,
   .is_bt_connected = false,
   .is_en_connected = false,
   .is_error = false,
@@ -128,35 +126,43 @@ void setup() {
   btServer.bleService = btServer.bleServer->createService(UUID_SERVICE);
   btServer.bleCharacteristic = btServer.bleService->createCharacteristic(UUID_CHARACTERISTIC, BLECharacteristic::PROPERTY_READ);
 
-  // Keep looping until a bluetooth connection is formed or an error occurs
+  // Starts advertising the server.
+  btServer.bleService->start();
+  btServer.bleAdvertising = BLEDevice::getAdvertising();
+  BLEDevice::startAdvertising();
+
+
+  // Keeps scanning until a bluetooth connection is formed or an error occurs.
   while(!bt.is_bt_connected && !bt.is_error) {
-    // Attempt to masquerade as a server
-    if(bt.is_server) {
-      btServer.bleService->start();
-      btServer.bleAdvertising = BLEDevice::getAdvertising();
-      BLEDevice::startAdvertising();
-      delay(bt.delay);
-      btServer.bleService->stop();
-    } else {
-      bool clientConnected = btClient.pBLEClient->connect(&btClient.advertisedDevice);
-      if (!clientConnected) {
-        continue;
-      }
-      btClient.pRemoteService = btClient.pBLEClient->getService(UUID_SERVICE);
-      if (btClient.pRemoteService == nullptr) {
-        continue;
-      }
-      btClient.pRemoteCharacteristic = btClient.pRemoteService->getCharacteristic(UUID_CHARACTERISTIC);
-      
-      if (btClient.pRemoteCharacteristic == nullptr) {
-        continue;
-      }
-      const char* rawData = btClient.pRemoteCharacteristic->readValue().c_str();
-      sprintf(bt.server_mac_address, "%02X:%02X:%02X:%02X:%02X:%02X", rawData[0], rawData[1], rawData[2], rawData[3], rawData[4], rawData[5]);
-      // If we made it this far, I guess we're connected now, yay!
-      bt.is_bt_connected = true;
+    // Does a 5 second scan for a server.
+    btClient.pBLEScan->start(5);
+    delay(5000);
+    btClient.pBLEScan->stop();
+    
+    // If we found a server, attempt to connect.
+    if (!btClient.pBLEClient->connect(&btClient.advertisedDevice)) {
+      continue;
     }
+    // Collects the service and characteristic from the server.
+    btClient.pRemoteService = btClient.pBLEClient->getService(UUID_SERVICE);
+    if (!(btClient.pRemoteService = 
+          btClient.pBLEClient->getService(UUID_SERVICE))) {
+      continue;
+    }
+    // Collects the characteristic from the server.
+    if (!(btClient.pRemoteCharacteristic = 
+        btClient.pRemoteService->getCharacteristic(UUID_CHARACTERISTIC))) {
+      continue;
+    }
+    // Reads the sent mac address from the server.
+    const uint8_t* rawData = (uint8_t*) btClient.pRemoteCharacteristic->readValue().c_str();
+    sprintf(bt.server_mac_address, "%02X:%02X:%02X:%02X:%02X:%02X", rawData[0], rawData[1], rawData[2], rawData[3], rawData[4], rawData[5]);
+    // If we made it here, we are connected.
+    bt.is_bt_connected = true;
   }
+
+  // 
+}
   // If you made it here, that probably worked
   // Hi Reng, it's 6am, and I need to start moving, so here's the plan
   // - Follow this to the tee https://randomnerdtutorials.com/esp-now-esp32-arduino-ide/
@@ -167,7 +173,6 @@ void setup() {
   // - You're a much better programmer than I, so I have full faith you'll finish this in under 5 hours
   // - Don't forget to unit test lol
   // - Thanks a bunch bestie :)
-}
 
 void loop() {
 
